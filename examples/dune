@@ -1,0 +1,7 @@
+(executable
+ (name org_to_html)
+ (libraries orgcaml))
+
+(executable
+ (name ast_walk)
+ (libraries orgcaml))

@@ -1,0 +1,170 @@
+#+TITLE: OrgCaml
+#+AUTHOR: Brad White
+#+DESCRIPTION: Org-mode parser and HTML renderer for OCaml
+
+An OCaml library and CLI tool for parsing [[https://orgmode.org][Org-mode]] documents into a typed AST and rendering them to HTML.
+
+** Features
+
+- *Headings* with TODO/DONE keyword support
+- *Inline markup*: =*bold*=, =/italic/=, =~code~=, ===verbatim===
+- *Links*: =[[url][description]]= and =[[url]]=
+- *Lists*: ordered and unordered
+- *Source blocks* with language annotation
+- *Example blocks*
+- *Quote blocks*
+- *Tables* with optional header rows
+- *Horizontal rules*
+- =#+TITLE=, =#+AUTHOR=, and other directives (silently skipped)
+
+** Quick Start
+
+*** With Nix (recommended)
+
+Build the CLI:
+
+#+BEGIN_SRC sh
+nix build .#orgcaml-bin
+./result/bin/orgcaml-bin document.org
+#+END_SRC
+
+Enter a dev shell:
+
+#+BEGIN_SRC sh
+nix develop
+dune build
+dune runtest
+#+END_SRC
+
+*** With opam
+
+#+BEGIN_SRC sh
+opam install angstrom
+dune build
+dune runtest
+#+END_SRC
+
+** CLI Usage
+
+Convert an Org file to an HTML fragment:
+
+#+BEGIN_SRC sh
+orgcaml-bin document.org
+#+END_SRC
+
+Generate a full HTML page with =<html>=, =<head>=, and =<body>= tags:
+
+#+BEGIN_SRC sh
+orgcaml-bin --full-page document.org > output.html
+#+END_SRC
+
+** Library Usage
+
+Add =orgcaml= to your dune dependencies:
+
+#+BEGIN_SRC dune
+(executable
+ (name my_app)
+ (libraries orgcaml))
+#+END_SRC
+
+Then parse and render:
+
+#+BEGIN_SRC ocaml
+let () =
+  let input = {|
+* Hello World
+
+This is *bold* and /italic/ text with a [[https://example.com][link]].
+
+- First item
+- Second item
+
+#+BEGIN_SRC python
+print("hello")
+#+END_SRC
+|} in
+  let doc = Orgcaml.Parser.parse input in
+  let html = Orgcaml.Html.render_document doc in
+  print_string html
+#+END_SRC
+
+*** Working with the AST
+
+You can also work with the parsed AST directly for custom processing:
+
+#+BEGIN_SRC ocaml
+let () =
+  let doc = Orgcaml.Parser.parse "* TODO My heading\n\nA paragraph." in
+  List.iter (function
+    | Orgcaml.Ast.Heading { level; keyword; title } ->
+      Printf.printf "H%d (kw=%s): %d inline elements\n"
+        level
+        (Option.value ~default:"none" keyword)
+        (List.length title)
+    | Orgcaml.Ast.Paragraph _ -> print_endline "Paragraph"
+    | _ -> ()
+  ) doc.content
+#+END_SRC
+
+** AST Reference
+
+#+BEGIN_SRC ocaml
+type inline =
+  | Text of string
+  | Bold of inline list
+  | Italic of inline list
+  | Code of string
+  | Verbatim of string
+  | Link of { url : string; desc : inline list option }
+
+type block =
+  | Heading of { level : int; keyword : string option; title : inline list }
+  | Paragraph of inline list
+  | List of list_kind * list_item list
+  | Src_block of { language : string option; contents : string }
+  | Example_block of string
+  | Quote_block of block list
+  | Table of { header : inline list list option; rows : inline list list list }
+  | Horizontal_rule
+
+type document = { properties : (string * string) list; content : block list }
+#+END_SRC
+
+** Nix Flake Outputs
+
+| Output             | Description                                      |
+|--------------------+--------------------------------------------------|
+| =packages.orgcaml=     | Library package (SDK)                            |
+| =packages.orgcaml-bin= | CLI binary                                       |
+| =packages.default=     | Alias for =orgcaml-bin=                              |
+| =devShells.default=    | Dev shell with OCaml 5.3, dune, lsp, utop, odoc |
+| =checks.default=       | Runs the test suite                              |
+
+** Project Structure
+
+#+BEGIN_SRC
+orgcaml/
+├── lib/
+│   ├── ast.ml              # Document AST types
+│   ├── inline_parser.ml    # Angstrom-based inline markup parser
+│   ├── block_parser.ml     # Line-classification block parser
+│   ├── parser.ml           # Top-level parse entry point
+│   ├── html.ml             # AST → HTML renderer
+│   └── orgcaml.ml          # Public module interface
+├── examples/
+│   ├── org_to_html.ml      # Org → full HTML page example
+│   └── ast_walk.ml         # Parse and inspect the AST
+├── bin/
+│   └── main.ml             # CLI entry point
+├── test/
+│   └── test_orgcaml.ml     # Test suite
+├── dune-project
+├── flake.nix
+├── orgcaml.opam            # Generated — library package
+└── orgcaml-bin.opam        # Generated — CLI package
+#+END_SRC
+
+** License
+
+MIT

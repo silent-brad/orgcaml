@@ -13,7 +13,9 @@ type block =
   | Paragraph of inline list
   | List of list_kind * list_item list
   | Src_block of { language : string option; contents : string }
+  | Example_block of string
   | Quote_block of block list
+  | Table of { header : inline list list option; rows : inline list list list }
   | Horizontal_rule
 
 and list_item = { bullet : string; contents : block list }

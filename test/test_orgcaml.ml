@@ -102,6 +102,36 @@ let () =
       ~expected:"<blockquote>\n<p>Wise words.</p>\n</blockquote>\n"
       ~actual:(parse_and_render "#+BEGIN_QUOTE\nWise words.\n#+END_QUOTE"));
 
+  test "example block" (fun () ->
+    assert_eq
+      ~expected:"<pre class=\"example\">some output\nmore output</pre>\n"
+      ~actual:(parse_and_render "#+BEGIN_EXAMPLE\nsome output\nmore output\n#+END_EXAMPLE"));
+
+  test "example block case insensitive" (fun () ->
+    assert_eq
+      ~expected:"<pre class=\"example\">hello</pre>\n"
+      ~actual:(parse_and_render "#+begin_example\nhello\n#+end_example"));
+
+  test "table with header" (fun () ->
+    assert_eq
+      ~expected:"<table>\n<thead>\n<tr><th>Name</th><th>Age</th></tr>\n</thead>\n<tbody>\n<tr><td>Alice</td><td>30</td></tr>\n<tr><td>Bob</td><td>25</td></tr>\n</tbody>\n</table>\n"
+      ~actual:(parse_and_render "| Name  | Age |\n|-------+-----|\n| Alice | 30  |\n| Bob   | 25  |"));
+
+  test "table without header" (fun () ->
+    assert_eq
+      ~expected:"<table>\n<tbody>\n<tr><td>a</td><td>b</td></tr>\n<tr><td>c</td><td>d</td></tr>\n</tbody>\n</table>\n"
+      ~actual:(parse_and_render "| a | b |\n| c | d |"));
+
+  test "table with inline markup" (fun () ->
+    assert_eq
+      ~expected:"<table>\n<tbody>\n<tr><td><strong>bold</strong></td><td><em>italic</em></td></tr>\n</tbody>\n</table>\n"
+      ~actual:(parse_and_render "| *bold* | /italic/ |"));
+
+  test "directives are skipped" (fun () ->
+    assert_eq
+      ~expected:"<h1>Title</h1>\n"
+      ~actual:(parse_and_render "#+TITLE: My Doc\n* Title"));
+
   test "full document" (fun () ->
     let input = String.concat "\n" [
       "* Hello World";
