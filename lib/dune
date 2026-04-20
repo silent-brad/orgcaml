@@ -1,0 +1,4 @@
+(library
+ (name orgcaml)
+ (public_name orgcaml)
+ (libraries angstrom))

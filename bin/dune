@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name orgcaml-bin)
+ (package orgcaml-bin)
+ (libraries orgcaml))
