@@ -31,12 +31,12 @@ let count_leading_char c s =
   loop 0
 
 let is_digit = function '0' .. '9' -> true | _ -> false
-
 let upper s = String.uppercase_ascii s
 
 let is_table_separator s =
-  String.length s >= 3 && s.[0] = '|' &&
-  String.for_all (fun c -> c = '|' || c = '-' || c = '+' || c = ' ') s
+  String.length s >= 3
+  && s.[0] = '|'
+  && String.for_all (fun c -> c = '|' || c = '-' || c = '+' || c = ' ') s
 
 let classify_line line =
   let trimmed = String.trim line in
@@ -56,8 +56,7 @@ let classify_line line =
     else if starts_with "#+BEGIN_QUOTE" (upper trimmed) then L_begin_quote
     else if starts_with "#+BEGIN_EXAMPLE" (upper trimmed) then L_begin_example
     else if len >= 1 && trimmed.[0] = '|' then
-      if is_table_separator trimmed then L_table_sep
-      else L_table_row trimmed
+      if is_table_separator trimmed then L_table_sep else L_table_row trimmed
     else if starts_with "#+" (upper trimmed) then L_directive trimmed
     else if len >= 2 && trimmed.[0] = '-' && trimmed.[1] = ' ' then
       L_ulist_item (String.sub trimmed 2 (len - 2))
@@ -83,37 +82,36 @@ let parse_heading raw =
 let rec blocks_of_lines lines =
   match lines with
   | [] -> []
-  | L_blank :: rest -> blocks_of_lines rest
-  | L_heading (level, raw) :: rest ->
+  | (_, L_blank) :: rest -> blocks_of_lines rest
+  | (_, L_heading (level, raw)) :: rest ->
       let keyword, title = parse_heading raw in
       Heading { level; keyword; title } :: blocks_of_lines rest
-  | L_hr :: rest -> Horizontal_rule :: blocks_of_lines rest
-  | L_begin_src lang :: rest ->
+  | (_, L_hr) :: rest -> Horizontal_rule :: blocks_of_lines rest
+  | (_, L_begin_src lang) :: rest ->
       let content_lines, rest = collect_until_end_src rest in
       Src_block { language = lang; contents = String.concat "\n" content_lines }
       :: blocks_of_lines rest
-  | L_end_src :: rest ->
+  | (_, L_end_src) :: rest ->
       Paragraph (Inline_parser.parse "#+END_SRC") :: blocks_of_lines rest
-  | L_begin_quote :: rest ->
+  | (_, L_begin_quote) :: rest ->
       let inner_lines, rest = collect_until_end_quote rest in
       let inner_blocks = blocks_of_lines inner_lines in
       Quote_block inner_blocks :: blocks_of_lines rest
-  | L_end_quote :: rest ->
+  | (_, L_end_quote) :: rest ->
       Paragraph (Inline_parser.parse "#+END_QUOTE") :: blocks_of_lines rest
-  | L_begin_example :: rest ->
+  | (_, L_begin_example) :: rest ->
       let content_lines, rest = collect_until_end_example rest in
       Example_block (String.concat "\n" content_lines) :: blocks_of_lines rest
-  | L_end_example :: rest ->
+  | (_, L_end_example) :: rest ->
       Paragraph (Inline_parser.parse "#+END_EXAMPLE") :: blocks_of_lines rest
-  | (L_table_row _ | L_table_sep) :: _ ->
+  | (_, (L_table_row _ | L_table_sep)) :: _ ->
       let table, rest = collect_table lines in
       table :: blocks_of_lines rest
-  | L_directive _ :: rest ->
-      blocks_of_lines rest
-  | L_ulist_item _ :: _ ->
+  | (_, L_directive _) :: rest -> blocks_of_lines rest
+  | (_, L_ulist_item _) :: _ ->
       let items, rest =
         collect_list_items
-          (fun l -> match l with L_ulist_item _ -> true | _ -> false)
+          (fun (_, l) -> match l with L_ulist_item _ -> true | _ -> false)
           lines
       in
       let list_items =
@@ -126,10 +124,10 @@ let rec blocks_of_lines lines =
           items
       in
       List (Unordered, list_items) :: blocks_of_lines rest
-  | L_olist_item _ :: _ ->
+  | (_, L_olist_item _) :: _ ->
       let items, rest =
         collect_list_items
-          (fun l -> match l with L_olist_item _ -> true | _ -> false)
+          (fun (_, l) -> match l with L_olist_item _ -> true | _ -> false)
           lines
       in
       let list_items =
@@ -142,7 +140,7 @@ let rec blocks_of_lines lines =
           items
       in
       List (Ordered, list_items) :: blocks_of_lines rest
-  | L_text _ :: _ ->
+  | (_, L_text _) :: _ ->
       let para_lines, rest = collect_paragraph lines in
       let text = String.concat " " para_lines in
       Paragraph (Inline_parser.parse text) :: blocks_of_lines rest
@@ -150,16 +148,15 @@ let rec blocks_of_lines lines =
 and collect_until_end_src lines =
   match lines with
   | [] -> ([], [])
-  | L_end_src :: rest -> ([], rest)
-  | line :: rest ->
-      let raw = raw_line_text line in
+  | (_, L_end_src) :: rest -> ([], rest)
+  | (raw, _) :: rest ->
       let more, rest = collect_until_end_src rest in
       (raw :: more, rest)
 
 and collect_until_end_quote lines =
   match lines with
   | [] -> ([], [])
-  | L_end_quote :: rest -> ([], rest)
+  | (_, L_end_quote) :: rest -> ([], rest)
   | line :: rest ->
       let more, final_rest = collect_until_end_quote rest in
       (line :: more, final_rest)
@@ -167,42 +164,53 @@ and collect_until_end_quote lines =
 and collect_until_end_example lines =
   match lines with
   | [] -> ([], [])
-  | L_end_example :: rest -> ([], rest)
-  | line :: rest ->
-      let raw = raw_line_text line in
+  | (_, L_end_example) :: rest -> ([], rest)
+  | (raw, _) :: rest ->
       let more, final_rest = collect_until_end_example rest in
       (raw :: more, final_rest)
 
 and parse_table_cells raw =
   let s = String.trim raw in
-  let s = if String.length s > 0 && s.[0] = '|' then String.sub s 1 (String.length s - 1) else s in
-  let s = if String.length s > 0 && s.[String.length s - 1] = '|' then String.sub s 0 (String.length s - 1) else s in
+  let s =
+    if String.length s > 0 && s.[0] = '|' then
+      String.sub s 1 (String.length s - 1)
+    else s
+  in
+  let s =
+    if String.length s > 0 && s.[String.length s - 1] = '|' then
+      String.sub s 0 (String.length s - 1)
+    else s
+  in
   String.split_on_char '|' s
   |> List.map (fun cell -> Inline_parser.parse (String.trim cell))
 
 and collect_table lines =
   let rec gather acc = function
-    | L_table_row raw :: rest -> gather (`Row raw :: acc) rest
-    | L_table_sep :: rest -> gather (`Sep :: acc) rest
+    | (_, L_table_row raw) :: rest -> gather (`Row raw :: acc) rest
+    | (_, L_table_sep) :: rest -> gather (`Sep :: acc) rest
     | other -> (List.rev acc, other)
   in
   let entries, rest = gather [] lines in
   let header, rows =
     match entries with
     | `Row h :: `Sep :: body ->
-        (Some (parse_table_cells h),
-         List.filter_map (function `Row r -> Some (parse_table_cells r) | `Sep -> None) body)
+        ( Some (parse_table_cells h),
+          List.filter_map
+            (function `Row r -> Some (parse_table_cells r) | `Sep -> None)
+            body )
     | _ ->
-        (None,
-         List.filter_map (function `Row r -> Some (parse_table_cells r) | `Sep -> None) entries)
+        ( None,
+          List.filter_map
+            (function `Row r -> Some (parse_table_cells r) | `Sep -> None)
+            entries )
   in
   (Table { header; rows }, rest)
 
 and collect_list_items pred lines =
   match lines with
-  | line :: rest when pred line ->
+  | ((_, kind) as line) :: rest when pred line ->
       let text =
-        match line with L_ulist_item t | L_olist_item t -> t | _ -> ""
+        match kind with L_ulist_item t | L_olist_item t -> t | _ -> ""
       in
       let more_items, final_rest = collect_list_items pred rest in
       (text :: more_items, final_rest)
@@ -210,29 +218,12 @@ and collect_list_items pred lines =
 
 and collect_paragraph lines =
   match lines with
-  | L_text t :: rest ->
+  | (_, L_text t) :: rest ->
       let more, final_rest = collect_paragraph rest in
       (t :: more, final_rest)
   | _ -> ([], lines)
 
-and raw_line_text = function
-  | L_heading (level, t) -> String.make level '*' ^ " " ^ t
-  | L_blank -> ""
-  | L_hr -> "-----"
-  | L_begin_src _ -> "#+BEGIN_SRC"
-  | L_end_src -> "#+END_SRC"
-  | L_begin_quote -> "#+BEGIN_QUOTE"
-  | L_end_quote -> "#+END_QUOTE"
-  | L_begin_example -> "#+BEGIN_EXAMPLE"
-  | L_end_example -> "#+END_EXAMPLE"
-  | L_table_row t -> t
-  | L_table_sep -> "|---|"
-  | L_ulist_item t -> "- " ^ t
-  | L_olist_item t -> "1. " ^ t
-  | L_directive t -> t
-  | L_text t -> t
-
 let parse input =
   let lines = String.split_on_char '\n' input in
-  let classified = List.map classify_line lines in
+  let classified = List.map (fun line -> (line, classify_line line)) lines in
   blocks_of_lines classified
