@@ -25,6 +25,11 @@
           duneVersion = "3";
           propagatedBuildInputs = [ ocamlPackages.angstrom ];
           doCheck = true;
+          meta = {
+            description = "OrgCaml – Org-mode parser and HTML renderer for OCaml";
+            license = pkgs.lib.licenses.mit;
+            homepage = "https://github.com/silent-brad/orgcaml";
+          };
         };
 
         orgcaml-bin = ocamlPackages.buildDunePackage {
