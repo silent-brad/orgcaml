@@ -12,6 +12,22 @@ let escape_html s =
     s;
   Buffer.contents buf
 
+let image_exts = [ ".png"; ".jpg"; ".jpeg"; ".gif"; ".svg"; ".webp"; ".bmp" ]
+
+let is_image_url url =
+  let lower = String.lowercase_ascii url in
+  List.exists (fun ext ->
+    let elen = String.length ext in
+    let ulen = String.length lower in
+    ulen >= elen && String.sub lower (ulen - elen) elen = ext) image_exts
+
+let strip_file_prefix url =
+  let prefix = "file:" in
+  let plen = String.length prefix in
+  if String.length url >= plen && String.sub url 0 plen = prefix then
+    String.sub url plen (String.length url - plen)
+  else url
+
 let rec render_inline buf = function
   | Text s -> Buffer.add_string buf (escape_html s)
   | Bold children ->
@@ -31,17 +47,33 @@ let rec render_inline buf = function
       Buffer.add_string buf (escape_html s);
       Buffer.add_string buf "</code>"
   | Link { url; desc = Some children } ->
-      Buffer.add_string buf "<a href=\"";
-      Buffer.add_string buf (escape_html url);
-      Buffer.add_string buf "\">";
-      List.iter (render_inline buf) children;
-      Buffer.add_string buf "</a>"
+      let clean_url = strip_file_prefix url in
+      if is_image_url clean_url then (
+        Buffer.add_string buf "<img src=\"";
+        Buffer.add_string buf (escape_html clean_url);
+        Buffer.add_string buf "\" alt=\"";
+        List.iter (render_inline buf) children;
+        Buffer.add_string buf "\" />")
+      else (
+        Buffer.add_string buf "<a href=\"";
+        Buffer.add_string buf (escape_html clean_url);
+        Buffer.add_string buf "\">";
+        List.iter (render_inline buf) children;
+        Buffer.add_string buf "</a>")
   | Link { url; desc = None } ->
-      Buffer.add_string buf "<a href=\"";
-      Buffer.add_string buf (escape_html url);
-      Buffer.add_string buf "\">";
-      Buffer.add_string buf (escape_html url);
-      Buffer.add_string buf "</a>"
+      let clean_url = strip_file_prefix url in
+      if is_image_url clean_url then (
+        Buffer.add_string buf "<img src=\"";
+        Buffer.add_string buf (escape_html clean_url);
+        Buffer.add_string buf "\" alt=\"";
+        Buffer.add_string buf (escape_html (Filename.basename clean_url));
+        Buffer.add_string buf "\" />")
+      else (
+        Buffer.add_string buf "<a href=\"";
+        Buffer.add_string buf (escape_html clean_url);
+        Buffer.add_string buf "\">";
+        Buffer.add_string buf (escape_html clean_url);
+        Buffer.add_string buf "</a>")
 
 let rec render_block buf = function
   | Heading { level; keyword; title } ->
@@ -90,24 +122,27 @@ let rec render_block buf = function
       (match header with
       | Some cells ->
           Buffer.add_string buf "<thead>\n<tr>";
-          List.iter (fun cell ->
-            Buffer.add_string buf "<th>";
-            List.iter (render_inline buf) cell;
-            Buffer.add_string buf "</th>"
-          ) cells;
+          List.iter
+            (fun cell ->
+              Buffer.add_string buf "<th>";
+              List.iter (render_inline buf) cell;
+              Buffer.add_string buf "</th>")
+            cells;
           Buffer.add_string buf "</tr>\n</thead>\n"
       | None -> ());
       if rows <> [] then begin
         Buffer.add_string buf "<tbody>\n";
-        List.iter (fun row ->
-          Buffer.add_string buf "<tr>";
-          List.iter (fun cell ->
-            Buffer.add_string buf "<td>";
-            List.iter (render_inline buf) cell;
-            Buffer.add_string buf "</td>"
-          ) row;
-          Buffer.add_string buf "</tr>\n"
-        ) rows;
+        List.iter
+          (fun row ->
+            Buffer.add_string buf "<tr>";
+            List.iter
+              (fun cell ->
+                Buffer.add_string buf "<td>";
+                List.iter (render_inline buf) cell;
+                Buffer.add_string buf "</td>")
+              row;
+            Buffer.add_string buf "</tr>\n")
+          rows;
         Buffer.add_string buf "</tbody>\n"
       end;
       Buffer.add_string buf "</table>\n"

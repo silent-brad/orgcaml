@@ -8,14 +8,15 @@ An OCaml library and CLI tool for parsing [[https://orgmode.org][Org-mode]] docu
 
 - *Headings* with TODO/DONE keyword support
 - *Inline markup*: =*bold*=, =/italic/=, =~code~=, ===verbatim===
-- *Links*: =[[url][description]]= and =[[url]]=
+- *Links*: =[[url][description]]= and =[[url]]= (image URLs render as =<img>=)
+- *Image support*: links to =.png=, =.jpg=, =.svg=, etc. auto-render as images
 - *Lists*: ordered and unordered
 - *Source blocks* with language annotation
 - *Example blocks*
 - *Quote blocks*
 - *Tables* with optional header rows
 - *Horizontal rules*
-- =#+TITLE=, =#+AUTHOR=, and other directives (silently skipped)
+- *Directives*: =#+TITLE=, =#+AUTHOR=, =#+DATE=, etc. parsed into =document.properties=
 
 ** Quick Start
 
@@ -87,6 +88,30 @@ print("hello")
   let doc = Orgcaml.Parser.parse input in
   let html = Orgcaml.Html.render_document doc in
   print_string html
+#+END_SRC
+
+*** Accessing Directives
+
+Directives like =#+TITLE:= are parsed into =document.properties=:
+
+#+BEGIN_SRC ocaml
+let () =
+  let doc = Orgcaml.Parser.parse "#+TITLE: My Doc\n#+DATE: 2026-04-22\n* Hello" in
+  List.iter (fun (key, value) ->
+    Printf.printf "%s = %s\n" key value
+  ) doc.properties
+  (* prints: TITLE = My Doc, DATE = 2026-04-22 *)
+#+END_SRC
+
+*** Listing Source Block Languages
+
+=Orgcaml.Parser.languages= returns all languages used in =#+BEGIN_SRC= blocks:
+
+#+BEGIN_SRC ocaml
+let () =
+  let doc = Orgcaml.Parser.parse input in
+  let langs = Orgcaml.Parser.languages doc in
+  List.iter print_endline langs
 #+END_SRC
 
 *** Working with the AST

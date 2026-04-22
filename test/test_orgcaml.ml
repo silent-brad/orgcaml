@@ -127,10 +127,45 @@ let () =
       ~expected:"<table>\n<tbody>\n<tr><td><strong>bold</strong></td><td><em>italic</em></td></tr>\n</tbody>\n</table>\n"
       ~actual:(parse_and_render "| *bold* | /italic/ |"));
 
-  test "directives are skipped" (fun () ->
+  test "directives are skipped in output" (fun () ->
     assert_eq
       ~expected:"<h1>Title</h1>\n"
       ~actual:(parse_and_render "#+TITLE: My Doc\n* Title"));
+
+  test "directives are parsed into properties" (fun () ->
+    let doc = Orgcaml.Parser.parse "#+TITLE: My Doc\n#+DATE: 2026-04-22\n* Title" in
+    assert_eq ~expected:"TITLE" ~actual:(fst (List.nth doc.properties 0));
+    assert_eq ~expected:"My Doc" ~actual:(snd (List.nth doc.properties 0));
+    assert_eq ~expected:"DATE" ~actual:(fst (List.nth doc.properties 1));
+    assert_eq ~expected:"2026-04-22" ~actual:(snd (List.nth doc.properties 1)));
+
+  test "image link without desc" (fun () ->
+    assert_eq
+      ~expected:"<p><img src=\"imgs/photo.png\" alt=\"photo.png\" /></p>\n"
+      ~actual:(parse_and_render "[[imgs/photo.png]]"));
+
+  test "image link with desc" (fun () ->
+    assert_eq
+      ~expected:"<p><img src=\"imgs/photo.png\" alt=\"A photo\" /></p>\n"
+      ~actual:(parse_and_render "[[imgs/photo.png][A photo]]"));
+
+  test "image link strips file prefix" (fun () ->
+    assert_eq
+      ~expected:"<p><img src=\"imgs/diagram.svg\" alt=\"diagram.svg\" /></p>\n"
+      ~actual:(parse_and_render "[[file:imgs/diagram.svg]]"));
+
+  test "non-image link unchanged" (fun () ->
+    assert_eq
+      ~expected:"<p><a href=\"https://example.com\">https://example.com</a></p>\n"
+      ~actual:(parse_and_render "[[https://example.com]]"));
+
+  test "languages extracts src block languages" (fun () ->
+    let doc = Orgcaml.Parser.parse
+      "#+BEGIN_SRC python\nprint(1)\n#+END_SRC\n\n#+BEGIN_SRC ocaml\nlet x = 1\n#+END_SRC\n\n#+BEGIN_SRC\nplain\n#+END_SRC" in
+    let langs = Orgcaml.Parser.languages doc in
+    assert_eq ~expected:"2" ~actual:(string_of_int (List.length langs));
+    assert_eq ~expected:"python" ~actual:(List.nth langs 0);
+    assert_eq ~expected:"ocaml" ~actual:(List.nth langs 1));
 
   test "full document" (fun () ->
     let input = String.concat "\n" [

@@ -223,6 +223,27 @@ and collect_paragraph lines =
       (t :: more, final_rest)
   | _ -> ([], lines)
 
+let parse_directive raw =
+  let s = String.trim raw in
+  let len = String.length s in
+  if len >= 2 && String.sub s 0 2 = "#+" then
+    let rest = String.sub s 2 (len - 2) in
+    match String.index_opt rest ':' with
+    | Some i ->
+        let key = String.uppercase_ascii (String.sub rest 0 i) in
+        let value = String.trim (String.sub rest (i + 1) (String.length rest - i - 1)) in
+        Some (key, value)
+    | None -> None
+  else None
+
+let extract_directives classified =
+  List.filter_map
+    (fun (_, line) ->
+      match line with
+      | L_directive raw -> parse_directive raw
+      | _ -> None)
+    classified
+
 let parse input =
   let lines = String.split_on_char '\n' input in
   let classified = List.map (fun line -> (line, classify_line line)) lines in
