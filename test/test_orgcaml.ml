@@ -167,6 +167,28 @@ let () =
     assert_eq ~expected:"python" ~actual:(List.nth langs 0);
     assert_eq ~expected:"ocaml" ~actual:(List.nth langs 1));
 
+  test "comment lines are ignored in HTML" (fun () ->
+    assert_eq
+      ~expected:"<h1>Title</h1>\n"
+      ~actual:(parse_and_render "# this is a comment\n* Title"));
+
+  test "comment-only document produces no output" (fun () ->
+    assert_eq
+      ~expected:""
+      ~actual:(parse_and_render "# just a comment"));
+
+  test "comment is parsed into AST" (fun () ->
+    let doc = Orgcaml.Parser.parse "# hello world" in
+    match doc.content with
+    | [ Orgcaml.Ast.Comment text ] ->
+        assert_eq ~expected:"hello world" ~actual:text
+    | _ -> failwith "expected a single Comment node");
+
+  test "bare hash is a comment" (fun () ->
+    assert_eq
+      ~expected:""
+      ~actual:(parse_and_render "#"));
+
   test "full document" (fun () ->
     let input = String.concat "\n" [
       "* Hello World";

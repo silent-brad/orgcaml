@@ -57,6 +57,7 @@ let rec print_block depth = function
       Printf.printf "%sTable(header=%b, %d rows)\n" (indent depth)
         (Option.is_some header) (List.length rows)
   | Ast.Horizontal_rule -> Printf.printf "%sHorizontal_rule\n" (indent depth)
+  | Ast.Comment text -> Printf.printf "%sComment(%s)\n" (indent depth) text
 
 let input =
   {|* Hello *World*

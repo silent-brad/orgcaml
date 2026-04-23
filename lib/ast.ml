@@ -17,6 +17,7 @@ type block =
   | Quote_block of block list
   | Table of { header : inline list list option; rows : inline list list list }
   | Horizontal_rule
+  | Comment of string
 
 and list_item = { bullet : string; contents : block list }
 

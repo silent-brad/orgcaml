@@ -147,6 +147,7 @@ let rec render_block buf = function
       end;
       Buffer.add_string buf "</table>\n"
   | Horizontal_rule -> Buffer.add_string buf "<hr />\n"
+  | Comment _ -> ()
 
 (* For list items, render paragraph contents inline (no <p> wrapper) *)
 and render_block_inline buf = function

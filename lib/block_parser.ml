@@ -17,6 +17,7 @@ type raw_line =
   | L_ulist_item of string
   | L_olist_item of string
   | L_directive of string
+  | L_comment of string
   | L_text of string
 
 let starts_with prefix s =
@@ -58,6 +59,8 @@ let classify_line line =
     else if len >= 1 && trimmed.[0] = '|' then
       if is_table_separator trimmed then L_table_sep else L_table_row trimmed
     else if starts_with "#+" (upper trimmed) then L_directive trimmed
+    else if trimmed.[0] = '#' && (len = 1 || trimmed.[1] = ' ') then
+      L_comment (if len <= 2 then "" else String.sub trimmed 2 (len - 2))
     else if len >= 2 && trimmed.[0] = '-' && trimmed.[1] = ' ' then
       L_ulist_item (String.sub trimmed 2 (len - 2))
     else begin
@@ -107,6 +110,7 @@ let rec blocks_of_lines lines =
   | (_, (L_table_row _ | L_table_sep)) :: _ ->
       let table, rest = collect_table lines in
       table :: blocks_of_lines rest
+  | (_, L_comment text) :: rest -> Comment text :: blocks_of_lines rest
   | (_, L_directive _) :: rest -> blocks_of_lines rest
   | (_, L_ulist_item _) :: _ ->
       let items, rest =
