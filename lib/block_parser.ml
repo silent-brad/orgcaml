@@ -235,7 +235,9 @@ let parse_directive raw =
     match String.index_opt rest ':' with
     | Some i ->
         let key = String.uppercase_ascii (String.sub rest 0 i) in
-        let value = String.trim (String.sub rest (i + 1) (String.length rest - i - 1)) in
+        let value =
+          String.trim (String.sub rest (i + 1) (String.length rest - i - 1))
+        in
         Some (key, value)
     | None -> None
   else None
@@ -243,9 +245,7 @@ let parse_directive raw =
 let extract_directives classified =
   List.filter_map
     (fun (_, line) ->
-      match line with
-      | L_directive raw -> parse_directive raw
-      | _ -> None)
+      match line with L_directive raw -> parse_directive raw | _ -> None)
     classified
 
 let parse input =
